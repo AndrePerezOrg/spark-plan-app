@@ -1,85 +1,98 @@
-import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Lightbulb, LogOut, User, Settings } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
+import { Button } from '../ui/Button'
+import { ThemeToggle } from '../ui/ThemeToggle'
+import { Lightbulb, LogOut, User, Menu, X, Globe } from 'lucide-react'
 
 export function Header() {
-  const { user, profile, signOut } = useAuth();
-  const { toast } = useToast();
+  const { user, profile, signOut } = useAuth()
+  const { language, setLanguage, t } = useLanguage()
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const handleSignOut = async () => {
+    console.log('🔥 Sign out button clicked!')
     try {
-      await signOut();
-      toast({
-        title: 'Desconectado',
-        description: 'Você foi desconectado com sucesso.',
-      });
+      await signOut()
     } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível desconectar. Tente novamente.',
-        variant: 'destructive',
-      });
+      console.error('Error signing out:', error)
     }
-  };
+  }
 
   return (
-    <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-            <Lightbulb className="w-5 h-5 text-white" />
+    <header className="bg-background border-b border-border shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center justify-center w-8 h-8 bg-primary rounded-lg">
+              <Lightbulb className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">BIX Kanban Ideas</h1>
+              <p className="text-xs text-muted-foreground">Hackathon de Ideias</p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-bold text-lg">BIX Kanban Ideas</h1>
-            <p className="text-xs text-muted-foreground">Hackathon de Ideias</p>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={profile?.avatar_url} alt={profile?.display_name} />
-                  <AvatarFallback>
-                    <User className="h-5 w-5" />
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    {profile?.display_name || 'Usuário'}
-                  </p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {user?.email}
-                  </p>
+          {/* Theme Toggle, Language Toggle & User Menu */}
+          <div className="flex items-center space-x-3">
+            {/* Theme Toggle */}
+            <ThemeToggle />
+
+            {/* Language Toggle */}
+            <button
+              onClick={() => setLanguage(language === 'pt-BR' ? 'en' : 'pt-BR')}
+              className="flex items-center space-x-1 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+              title="Toggle Language"
+            >
+              <Globe className="w-4 h-4" />
+              <span className="font-medium">{language === 'pt-BR' ? 'PT' : 'EN'}</span>
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  console.log('🔥 User dropdown toggle clicked!')
+                  setDropdownOpen(!dropdownOpen)
+                }}
+                className="flex items-center space-x-2 text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <div className="flex items-center justify-center w-8 h-8 bg-muted rounded-full">
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt={profile.display_name || 'User'}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-4 h-4 text-muted-foreground" />
+                  )}
                 </div>
-              </DropdownMenuLabel>
-              
-              <DropdownMenuSeparator />
-              
-              <DropdownMenuItem className="cursor-pointer">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Configurações</span>
-              </DropdownMenuItem>
-              
-              <DropdownMenuSeparator />
-              
-              <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Sair</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <span className="hidden md:block font-medium text-foreground">
+                  {profile?.display_name || user?.email}
+                </span>
+              </button>
+
+              {dropdownOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-popover text-popover-foreground rounded-md shadow-lg py-1 z-50 border">
+                  <div className="px-4 py-2 border-b border-border">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {profile?.display_name || t('user.defaultName')}
+                    </p>
+                    <p className="text-sm text-muted-foreground break-all">{user?.email}</p>
+                  </div>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted flex items-center space-x-2"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>{t('auth.signOut')}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </header>
-  );
+  )
 }

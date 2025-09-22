@@ -1,133 +1,276 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'
 import {
   DndContext,
   DragEndEvent,
   DragOverEvent,
   DragStartEvent,
-  closestCorners,
-  PointerSensor,
+  DragOverlay,
+  closestCenter,
   useSensor,
   useSensors,
-} from '@dnd-kit/core';
-import { useColumns, useCards, useMoveCard } from '@/hooks/useKanban';
-import { useRealtimeCards } from '@/hooks/useRealtime';
-import { KanbanColumn } from './KanbanColumn';
-import { Card } from '@/types/database';
-import { useToast } from '@/hooks/use-toast';
+  PointerSensor,
+  KeyboardSensor,
+} from '@dnd-kit/core'
+import {
+  sortableKeyboardCoordinates,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { useColumns, useCards, useUpdateCard } from '../../hooks/useKanban'
+import { useRealtimeBoard } from '../../hooks/useRealtime'
+import { useLanguage } from '../../contexts/LanguageContext'
+import { KanbanColumn } from './KanbanColumn'
+import { KanbanCard } from './KanbanCard'
+import { LoadingSpinner } from '../ui/LoadingSpinner'
+import { CardWithDetails } from '../../types/database'
 
-const BOARD_ID = '00000000-0000-0000-0000-000000000001';
+interface KanbanBoardProps {
+  boardId?: string
+  searchTerm: string
+  filters: {
+    priority: string
+    creator: string
+    column: string
+    tags: string[]
+    showArchived: boolean
+  }
+  onAddCard: (columnId: string) => void
+}
 
-export function KanbanBoard() {
-  const [activeCard, setActiveCard] = useState<Card | null>(null);
-  
-  const { data: columns, isLoading: columnsLoading } = useColumns(BOARD_ID);
-  const { data: cards, isLoading: cardsLoading } = useCards();
-  const moveCardMutation = useMoveCard();
-  const { toast } = useToast();
+export function KanbanBoard({ boardId, searchTerm, filters, onAddCard }: KanbanBoardProps) {
+  const { data: columns, isLoading, error } = useColumns(boardId)
+  const { data: allCards } = useCards()
+  const updateCardMutation = useUpdateCard()
+  const [activeCard, setActiveCard] = useState<CardWithDetails | null>(null)
+  const { t } = useLanguage()
 
-  // Enable real-time updates
-  useRealtimeCards();
+  // Enable real-time subscriptions
+  useRealtimeBoard(boardId)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 3, // Reduced for better responsiveness
       },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
     })
-  );
+  )
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const card = cards?.find(c => c.id === event.active.id);
-    if (card) {
-      setActiveCard(card as Card);
-    }
-  };
+  // Filter cards based on search and filters
+  const filterCards = (cards: CardWithDetails[]) => {
+    if (!cards) return []
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    setActiveCard(null);
+    return cards.filter(card => {
+      // Search filter (title, description, creator)
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase()
+        const titleMatch = card.title.toLowerCase().includes(searchLower)
+        const descriptionMatch = card.description?.toLowerCase().includes(searchLower)
+        const creatorMatch = card.creator?.display_name?.toLowerCase().includes(searchLower)
 
-    if (!over || active.id === over.id) return;
+        if (!titleMatch && !descriptionMatch && !creatorMatch) {
+          return false
+        }
+      }
 
-    const activeCard = cards?.find(card => card.id === active.id);
-    if (!activeCard) return;
+      // Priority filter
+      if (filters.priority && card.priority !== filters.priority) {
+        return false
+      }
 
-    const overColumnId = over.id as string;
-    const cardsInOverColumn = cards?.filter(card => card.column_id === overColumnId) || [];
-    const newPosition = cardsInOverColumn.length + 1;
+      // Creator filter (partial match, case insensitive)
+      if (filters.creator) {
+        const creatorFilter = filters.creator.toLowerCase()
+        const creatorName = card.creator?.display_name?.toLowerCase() || ''
+        if (!creatorName.includes(creatorFilter)) {
+          return false
+        }
+      }
 
-    try {
-      await moveCardMutation.mutateAsync({
-        cardId: activeCard.id,
-        newColumnId: overColumnId,
-        newPosition,
-      });
+      // Tags filter
+      if (filters.tags.length > 0 && !filters.tags.some(tag => card.tags?.includes(tag))) {
+        return false
+      }
 
-      toast({
-        title: 'Card movido!',
-        description: 'O card foi movido com sucesso.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível mover o card. Tente novamente.',
-        variant: 'destructive',
-      });
-    }
-  };
+      // Column filter
+      if (filters.column) {
+        const cardColumn = columns?.find(col => col.id === card.column_id)
+        if (!cardColumn || cardColumn.name !== filters.column) {
+          return false
+        }
+      }
 
-  if (columnsLoading || cardsLoading) {
-    return (
-      <div className="p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="kanban-column p-4 h-96">
-              <div className="shimmer h-6 w-32 rounded mb-4" />
-              <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, j) => (
-                  <div key={j} className="shimmer h-24 rounded-lg" />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+      // Archived filter
+      if (!filters.showArchived && card.status === 'archived') {
+        return false
+      }
+
+      return true
+    })
   }
 
+  // Group filtered cards by column ID and sort by position
+  const getCardsForColumn = (columnId: string) => {
+    const filteredCards = filterCards(allCards || [])
+
+    return filteredCards
+      .filter(card => card.column_id === columnId)
+      .sort((a, b) => (a.position || 0) - (b.position || 0))
+  }
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event
+    console.log('🚀 Drag started:', active.id)
+
+    const card = allCards?.find(card => card.id === active.id)
+
+    if (card) {
+      setActiveCard(card)
+    }
+  }
+
+  const handleDragOver = (event: DragOverEvent) => {
+    // Keep this simple - just for visual feedback
+    console.log('📍 Drag over:', event.over?.id)
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    console.log('🎯 Drag ended:', { activeId: active.id, overId: over?.id })
+    setActiveCard(null)
+
+    if (!over) {
+      console.log('❌ No drop target found')
+      return
+    }
+
+    // Find source card
+    const sourceCard = allCards?.find(card => card.id === active.id)
+    if (!sourceCard) {
+      console.log('❌ Could not find source card')
+      return
+    }
+
+    // Determine target column and position
+    let targetColumnId: string | null = null
+    let targetPosition: number | null = null
+
+    // Check if we dropped on a column directly
+    if (columns?.some(col => col.id === over.id)) {
+      targetColumnId = over.id as string
+      // When dropping on column, put at end
+      const columnCards = getCardsForColumn(targetColumnId)
+      targetPosition = columnCards.length
+      console.log('✅ Dropped on column:', targetColumnId, 'position:', targetPosition)
+    } else {
+      // We dropped on a card - find its column and position
+      const overCard = allCards?.find(card => card.id === over.id)
+
+      if (overCard) {
+        targetColumnId = overCard.column_id
+        const columnCards = getCardsForColumn(targetColumnId)
+        const overCardIndex = columnCards.findIndex(card => card.id === over.id)
+        targetPosition = overCardIndex
+        console.log('✅ Dropped on card in column:', targetColumnId, 'position:', targetPosition)
+      }
+    }
+
+    if (!targetColumnId || targetPosition === null) {
+      console.log('❌ Could not determine target column or position')
+      return
+    }
+
+    // Check if anything actually changed
+    const currentColumnCards = getCardsForColumn(sourceCard.column_id)
+    const currentPosition = currentColumnCards.findIndex(card => card.id === active.id)
+
+    if (sourceCard.column_id === targetColumnId && currentPosition === targetPosition) {
+      console.log('🔄 Same position - no action needed')
+      return
+    }
+
+    console.log('🔥 Moving card:', {
+      cardId: active.id,
+      from: sourceCard.column_id,
+      to: targetColumnId,
+      fromPosition: currentPosition,
+      toPosition: targetPosition
+    })
+
+    try {
+      const updates: any = {
+        id: active.id as string,
+        position: targetPosition,
+      }
+
+      // Only update column if it's actually changing
+      if (sourceCard.column_id !== targetColumnId) {
+        updates.column_id = targetColumnId
+      }
+
+      await updateCardMutation.mutateAsync(updates)
+      console.log('✅ Card moved successfully')
+    } catch (error) {
+      console.error('❌ Error moving card:', error)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="text-center text-destructive p-8">
+        <p>{t('common.error')}</p>
+      </div>
+    )
+  }
+
+  // If no columns exist, show default columns
+  const defaultColumns = [
+    { id: 'backlog', name: 'Backlog', cards: [] },
+    { id: 'analysis', name: 'Em Análise', cards: [] },
+    { id: 'approved', name: 'Aprovado', cards: [] },
+    { id: 'implemented', name: 'Implementado', cards: [] },
+  ]
+
+  const displayColumns = columns && columns.length > 0 ? columns : defaultColumns
+
   return (
-    <div className="p-4 md:p-8 min-h-screen bg-gradient-secondary">
-      <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2">
-          BIX IA Hackathon - Quadro de Ideias
-        </h1>
-        <p className="text-muted-foreground text-lg">
-          Colabore, vote e organize as melhores ideias para o hackathon
-        </p>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex gap-6 overflow-x-auto pb-6">
+        {displayColumns.map((column) => (
+          <KanbanColumn
+            key={column.id}
+            column={column}
+            cards={getCardsForColumn(column.id)}
+            onAddCard={() => onAddCard(column.id)}
+            isDragging={!!activeCard}
+            boardId={boardId}
+          />
+        ))}
       </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          {columns?.map((column) => {
-            const columnCards = (cards?.filter(card => card.column_id === column.id) || []) as Card[];
-            
-            return (
-              <KanbanColumn
-                key={column.id}
-                column={column}
-                cards={columnCards}
-              />
-            );
-          })}
-        </div>
-
-        {/* Drag overlay could be added here */}
-      </DndContext>
-    </div>
-  );
+      <DragOverlay>
+        {activeCard ? (
+          <div className="rotate-6 scale-105">
+            <KanbanCard card={activeCard} />
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  )
 }

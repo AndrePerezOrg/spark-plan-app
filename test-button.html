@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Button Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 50px;
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .test-button {
+            background: #22c55e !important;
+            color: white !important;
+            padding: 16px 32px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 12px;
+            border: none !important;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .test-button:hover {
+            background: #16a34a !important;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 999999;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 32px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+        }
+    </style>
+</head>
+<body>
+    <button class="test-button" onclick="showModal()">
+        Começar Agora - Test
+    </button>
+
+    <div class="modal" id="testModal" onclick="hideModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2>Test Modal</h2>
+            <p>This should appear above everything</p>
+            <button onclick="hideModal()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        function showModal() {
+            document.getElementById('testModal').classList.add('show');
+        }
+
+        function hideModal() {
+            document.getElementById('testModal').classList.remove('show');
+        }
+    </script>
+</body>
+</html>

@@ -1,73 +1,230 @@
-# Welcome to your Lovable project
+# BIX Kanban Ideas
 
-## Project info
+Uma plataforma de Kanban colaborativa para gerenciar ideias inovadoras, desenvolvida para o Hackathon BIX IA.
 
-**URL**: https://lovable.dev/projects/46083c29-ef66-43d1-979a-d2997b245974
+## 🚀 Funcionalidades
 
-## How can I edit this code?
+- **Kanban Interativo**: Arraste e solte cards entre colunas de workflow
+- **Colaboração em Tempo Real**: Atualizações instantâneas para todos os usuários
+- **Sistema de Votação**: Vote nas melhores ideias
+- **Comentários**: Discussão colaborativa em cada ideia
+- **Busca e Filtros**: Encontre ideias por título, descrição, prioridade ou criador
+- **Tags**: Organize ideias com etiquetas personalizadas
+- **Autenticação**: Sistema seguro com Supabase Auth
 
-There are several ways of editing your application.
+## 🛠️ Stack Tecnológica
 
-**Use Lovable**
+### Frontend
+- **React 18** com TypeScript
+- **Vite** para bundling e desenvolvimento
+- **Tailwind CSS** para estilização
+- **TanStack Query** para gerenciamento de estado servidor
+- **@dnd-kit** para drag-and-drop
+- **React Router** para navegação
+- **date-fns** para formatação de datas
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/46083c29-ef66-43d1-979a-d2997b245974) and start prompting.
+### Backend
+- **Supabase** (PostgreSQL + Auth + Realtime)
+- **Row Level Security (RLS)** para segurança
+- **Realtime subscriptions** para colaboração
 
-Changes made via Lovable will be committed automatically to this repo.
+## 📋 Pré-requisitos
 
-**Use your preferred IDE**
+- Node.js 18+
+- npm ou yarn
+- Docker (para desenvolvimento local com Supabase)
+- Conta no Supabase (para produção)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 🔧 Instalação
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Desenvolvimento Local (Recomendado)
 
-Follow these steps:
+1. **Clone o repositório**
+   ```bash
+   git clone <repository-url>
+   cd kanban_dashboard
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+2. **Instale as dependências**
+   ```bash
+   npm install
+   ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+3. **Configure o Supabase Local**
+   ```bash
+   # Inicie o Supabase local (Docker necessário)
+   npx supabase start
 
-# Step 3: Install the necessary dependencies.
-npm i
+   # Aplique as migrações do banco
+   npx supabase db reset
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+   # Inicie as Edge Functions (em outra aba/terminal)
+   npx supabase functions serve --no-verify-jwt
+   ```
+
+4. **Configure as variáveis de ambiente para local**
+   ```bash
+   # O arquivo .env.local já está configurado para desenvolvimento local
+   # Ele usa as credenciais padrão do Supabase local
+   ```
+
+5. **Crie um super usuário**
+   ```bash
+   # Criar usuário administrador para testes
+   ./scripts/create-super-user-final.sh admin@bix.com minha_senha
+   ```
+
+6. **Inicie o servidor de desenvolvimento**
+   ```bash
+   npm run dev
+   ```
+
+   A aplicação estará disponível em `http://localhost:8080` e o Supabase local em `http://127.0.0.1:54321`
+
+### Desenvolvimento com Supabase Cloud
+
+1. **Siga os passos 1-2 acima**
+
+2. **Configure as variáveis de ambiente**
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edite o arquivo `.env` com suas credenciais do Supabase:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_project_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+3. **Configure o banco de dados**
+   Execute os seguintes comandos SQL no Supabase SQL Editor conforme documentado no arquivo `lovable_kanban_prompt.md`.
+
+4. **Inicie o servidor**
+   ```bash
+   npm run dev
+   ```
+
+## 🐳 Comandos Supabase Local
+
+```bash
+# Iniciar Supabase local
+npx supabase start
+
+# Parar Supabase local
+npx supabase stop
+
+# Verificar status
+npx supabase status
+
+# Reset do banco (aplica migrações)
+npx supabase db reset
+
+# Iniciar Edge Functions
+npx supabase functions serve --no-verify-jwt
+
+# Acessar o Studio local
+# http://127.0.0.1:54323
 ```
 
-**Edit a file directly in GitHub**
+## 🔧 Edge Functions
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+O projeto inclui Edge Functions para operações avançadas:
 
-**Use GitHub Codespaces**
+**Functions disponíveis:**
+- `get-cards-with-counts` - Retorna cards com contadores de votos/comentários
+- `reorder-card` - Reordena cards nas colunas
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+**URLs locais:**
+- `http://127.0.0.1:54321/functions/v1/get-cards-with-counts`
+- `http://127.0.0.1:54321/functions/v1/reorder-card`
 
-## What technologies are used for this project?
+**Para desenvolvimento:**
+```bash
+# Servir functions localmente
+npx supabase functions serve --no-verify-jwt
 
-This project is built with:
+# Deploy para produção
+npx supabase functions deploy get-cards-with-counts
+npx supabase functions deploy reorder-card
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🏗️ Estrutura do Projeto
 
-## How can I deploy this project?
+```
+src/
+├── components/          # Componentes React
+│   ├── auth/           # Componentes de autenticação
+│   ├── kanban/         # Componentes do Kanban
+│   ├── layout/         # Componentes de layout
+│   └── ui/             # Componentes UI reutilizáveis
+├── contexts/           # Context providers
+├── hooks/              # Custom hooks
+├── lib/                # Utilitários e configurações
+├── pages/              # Páginas da aplicação
+├── routes/             # Configuração de rotas
+└── types/              # Definições TypeScript
+```
 
-Simply open [Lovable](https://lovable.dev/projects/46083c29-ef66-43d1-979a-d2997b245974) and click on Share -> Publish.
+## 🎯 Fluxo de Trabalho
 
-## Can I connect a custom domain to my Lovable project?
+1. **Backlog**: Novas ideias são criadas aqui
+2. **Em Análise**: Ideias sendo avaliadas pela equipe
+3. **Aprovado**: Ideias aprovadas para implementação
+4. **Implementado**: Ideias que foram desenvolvidas
 
-Yes, you can!
+## 🔐 Segurança
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- Autenticação via Supabase Auth
+- Row Level Security (RLS) no banco de dados
+- Validação de permissões no frontend e backend
+- Sanitização de inputs do usuário
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 🚀 Deploy
+
+### Vercel (Recomendado)
+```bash
+npm run build
+# Deploy para Vercel
+```
+
+### Manual
+```bash
+npm run build
+# Upload da pasta dist/ para seu servidor
+```
+
+## 📊 Arquitetura
+
+O projeto segue os princípios definidos no hackathon:
+
+### Backend (Supabase)
+- **Modelagem Relacional**: Entidades User Profiles, Boards, Columns, Cards, Votes, Comments
+- **Normalização**: Evita redundância de dados com relacionamentos adequados
+- **Controle de Acesso**: RLS policies implementadas seguindo princípio do menor privilégio
+- **Lógica Atômica**: Operações complexas tratadas de forma segura no backend
+
+### Frontend (React)
+- **Componentização**: Componentes modulares e reutilizáveis
+- **Separação de Responsabilidades**: Hooks customizados para lógica de API
+- **Estado Reativo**: TanStack Query com subscriptions em tempo real
+- **Interface Intuitiva**: UX completa com board, formulários e autenticação
+
+## 🤝 Contribuição
+
+1. Fork o projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📝 Licença
+
+Este projeto está sob a licença MIT.
+
+## 👥 Equipe
+
+Desenvolvido para o **BIX IA Hackathon: Kanban de Ideias**
+
+---
+
+**Transformando ideias em realidade** 💡✨

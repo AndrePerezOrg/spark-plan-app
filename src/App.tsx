@@ -1,33 +1,41 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthGuard } from "@/components/auth/AuthGuard";
-import { AuthPage } from "@/components/auth/AuthPage";
-import Dashboard from "./pages/Dashboard";
-import NotFound from "./pages/NotFound";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import { BrowserRouter } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import { LanguageProvider } from './contexts/LanguageContext'
+import { ThemeProvider } from './contexts/ThemeContext'
+import { AppRoutes } from './routes/AppRoutes'
+import { ToastProvider } from './components/ui/Toaster'
 
-const queryClient = new QueryClient();
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      cacheTime: 1000 * 60 * 30, // 30 minutes
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/" element={
-            <AuthGuard>
-              <Dashboard />
-            </AuthGuard>
-          } />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <ThemeProvider>
+          <LanguageProvider>
+            <ToastProvider>
+              <AuthProvider>
+                <AppRoutes />
+              </AuthProvider>
+            </ToastProvider>
+          </LanguageProvider>
+        </ThemeProvider>
       </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  )
+}
 
-export default App;
+export default App
